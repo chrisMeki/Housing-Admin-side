@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Map, Home, Search, Users, List, Settings, Bell, FileText, BarChart3, User, ChevronRight, X } from 'lucide-react';
+import { Map, Home, Search, Users, List, Bell, FileText, BarChart3, User, ChevronRight, X } from 'lucide-react';
 
 export default function AdminSidebar({ isOpen = true, onClose = () => {} }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  const menuItems = [
+  const mainMenuItems = [
     { id: 'dashboard', label: 'Admin Dashboard', path: '/dashboard', icon: Home, color: 'text-blue-500' },
     { id: 'users', label: 'User Management', path: '/users', icon: Users, color: 'text-green-500' },
     { id: 'properties', label: 'Property Management', path: '/properties', icon: Map, color: 'text-yellow-500' },
     { id: 'registration', label: 'Registration Management', path: '/registration', icon: User, color: 'text-purple-500' },
     { id: 'listings', label: 'Admin Property Listings', path: '/listings', icon: List, color: 'text-pink-500' },
     { id: 'reports', label: 'Reports & Analytics', path: '/reports', icon: BarChart3, color: 'text-red-500' }
+  ];
+
+  const bottomMenuItems = [
+    { id: 'profile', label: 'Admin Profile', path: '/profile', icon: User, color: 'text-indigo-500' }
   ];
 
   return (
@@ -45,11 +49,50 @@ export default function AdminSidebar({ isOpen = true, onClose = () => {} }) {
           </div>
 
           {/* Scrollable content */}
-          <div className="flex-1 overflow-y-auto">
-            {/* Navigation Menu */}
-            <nav className="p-4">
+          <div className="flex-1 overflow-y-auto flex flex-col">
+            {/* Main Navigation Menu */}
+            <nav className="p-4 flex-1">
               <div className="space-y-2">
-                {menuItems.map((item) => {
+                {mainMenuItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <NavLink
+                      key={item.id}
+                      to={item.path}
+                      className={({ isActive }) => 
+                        `w-full flex items-center px-3 py-3 rounded-lg transition-all duration-200 group ${
+                          isActive 
+                            ? 'bg-blue-50/70 border-l-4 border-blue-500 text-blue-700' 
+                            : 'hover:bg-gray-50/50 text-gray-700'
+                        }`
+                      }
+                      onClick={() => {
+                        if (window.innerWidth < 1024) {
+                          onClose();
+                        }
+                      }}
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <Icon className={`w-5 h-5 ${isActive ? item.color : 'text-gray-500'} group-hover:scale-110 transition-transform`} />
+                          {!isCollapsed && (
+                            <span className="ml-3 font-medium">{item.label}</span>
+                          )}
+                          {isActive && !isCollapsed && (
+                            <div className="ml-auto w-2 h-2 bg-blue-500 rounded-full"></div>
+                          )}
+                        </>
+                      )}
+                    </NavLink>
+                  );
+                })}
+              </div>
+            </nav>
+
+            {/* Bottom Navigation Menu (Profile) */}
+            <nav className="p-4 border-t border-gray-200/30">
+              <div className="space-y-2">
+                {bottomMenuItems.map((item) => {
                   const Icon = item.icon;
                   return (
                     <NavLink
