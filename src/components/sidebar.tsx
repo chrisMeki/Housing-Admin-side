@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Map, Home, Search, Users, List, Bell, FileText, BarChart3, User, ChevronRight, X } from 'lucide-react';
+// @ts-ignore
 import logo from '../assets/logo.png'; // Make sure to import your logo
 
 export default function ({ isOpen = true, onClose = () => {} }) {
