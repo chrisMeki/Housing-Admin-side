@@ -8,6 +8,7 @@ import Reports from "./adminpages/reports";
 import AdminProfile from "./adminpages/Adminprofile";
 import CreateAccountPage from "./adminpages/createaccount";
 import LoginPage from "./adminpages/signup";
+import LogoutPage from "./adminpages/logoutpage";
 
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
         <Route path='/listings' element={<PropertyListings/>} />
          <Route path='/reports' element={<Reports/>} />
          <Route path='/profile' element={<AdminProfile />} />
+         <Route path='/logout' element={<LogoutPage/>} />
 
 
         

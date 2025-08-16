@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Map, Home, Search, Users, List, Bell, FileText, BarChart3, User, ChevronRight, X } from 'lucide-react';
+import logo from '../assets/logo.png'; // Make sure to import your logo
 
-export default function AdminSidebar({ isOpen = true, onClose = () => {} }) {
+export default function ({ isOpen = true, onClose = () => {} }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const mainMenuItems = [
@@ -15,7 +16,8 @@ export default function AdminSidebar({ isOpen = true, onClose = () => {} }) {
   ];
 
   const bottomMenuItems = [
-    { id: 'profile', label: 'Admin Profile', path: '/profile', icon: User, color: 'text-indigo-500' }
+    { id: 'profile', label: 'Admin Profile', path: '/profile', icon: User, color: 'text-indigo-500' },
+    { id: 'logout', label: 'Admin logout', path: '/logout', icon: User, color: 'text-indigo-500' }
   ];
 
   return (
@@ -33,12 +35,21 @@ export default function AdminSidebar({ isOpen = true, onClose = () => {} }) {
       } ${isOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}>
         {/* Glass container */}
         <div className="flex-1 flex flex-col bg-white/80 backdrop-blur-lg border-r border-gray-200/30 shadow-lg overflow-hidden">
-          {/* Header */}
+          {/* Header with Logo */}
           <div className="p-4 border-b border-gray-200/30 flex-shrink-0">
             <div className="flex items-center justify-between">
-              {!isCollapsed && (
-                <h1 className="text-xl font-bold text-gray-800">AdminSide</h1>
-              )}
+              <div className="flex items-center">
+                <div className="flex items-center">
+                  <img
+                    src={logo}
+                    alt="city council"
+                    className={`${isCollapsed ? 'w-10 h-10' : 'w-30 h-auto'} object-contain transition-all duration-300`}
+                  />
+                </div>
+                {!isCollapsed && (
+                  <h1 className="ml-3 text-xl font-bold text-gray-800"></h1>
+                )}
+              </div>
               <button
                 onClick={onClose}
                 className="lg:hidden p-2 rounded-lg hover:bg-gray-100/50 transition-colors"
@@ -47,6 +58,14 @@ export default function AdminSidebar({ isOpen = true, onClose = () => {} }) {
               </button>
             </div>
           </div>
+
+          {/* Collapse button */}
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="absolute -right-3 top-20 bg-white p-1 rounded-full border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors"
+          >
+            <ChevronRight className={`w-4 h-4 text-gray-600 transition-transform ${isCollapsed ? 'rotate-180' : ''}`} />
+          </button>
 
           {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto flex flex-col">
