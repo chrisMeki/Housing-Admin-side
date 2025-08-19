@@ -1,143 +1,239 @@
-import React, { useState } from 'react';
-import { Search, Plus, Edit2, Trash2, MapPin, Home, User, Phone, Mail, Menu, Bell } from 'lucide-react';
-import AdminSidebar from '../components/sidebar';
+import { useState, useEffect } from "react";
+import {
+  Search,
+  Plus,
+  Edit2,
+  Trash2,
+  User,
+  Phone,
+  Mail,
+  Menu,
+  Bell,
+  Eye,
+  EyeOff,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
+import UserDetailsModal from "../components/users/view_users";
+
+import UserService from "../services/user_Service";
+import Sidebar from "../components/sidebar";
+
+// Add this interface at the top of your file, after the imports
+interface User {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  contactNumber: string;
+  address: string;
+  createdAt: string;
+  updatedAt: string;
+}
+interface FormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  contactNumber: string;
+  address: string;
+  password?: string; // Make password optional
+}
 
 const UserManagement = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [users, setUsers] = useState([
-    {
-      id: 1,
-      name: 'John Doe',
-      email: 'john.doe@email.com',
-      phone: '+263 77 123 4567',
-      address: '123 Main Street, Harare',
-      coordinates: '-17.8252, 31.0335',
-      housingType: 'Apartment',
-      registrationDate: '2024-01-15',
-      status: 'Active'
-    },
-    {
-      id: 2,
-      name: 'Jane Smith',
-      email: 'jane.smith@email.com',
-      phone: '+263 71 987 6543',
-      address: '456 Oak Avenue, Bulawayo',
-      coordinates: '-20.1569, 28.5903',
-      housingType: 'House',
-      registrationDate: '2024-02-20',
-      status: 'Active'
-    },
-    {
-      id: 3,
-      name: 'Mike Johnson',
-      email: 'mike.johnson@email.com',
-      phone: '+263 78 555 0123',
-      address: '789 Pine Road, Mutare',
-      coordinates: '-18.9707, 32.6518',
-      housingType: 'Townhouse',
-      registrationDate: '2024-03-10',
-      status: 'Pending'
-    }
-  ]);
-
-  const [searchTerm, setSearchTerm] = useState('');
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    address: '',
-    coordinates: '',
-    housingType: '',
-    status: 'Active'
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  //viwe user details
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  const [formData, setFormData] = useState<FormData>({
+    firstName: "",
+    lastName: "",
+    email: "",
+    contactNumber: "",
+    address: "",
+    password: "",
   });
 
-  const housingTypes = ['Apartment', 'House', 'Townhouse', 'Condo', 'Studio'];
-  const statusOptions = ['Active', 'Pending', 'Inactive'];
+  // Load users on component mount
+  useEffect(() => {
+    loadUsers();
+  }, []);
 
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.address.toLowerCase().includes(searchTerm.toLowerCase())
+  const loadUsers = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const response = await UserService.getAllUsers();
+      setUsers(response.data || []);
+    } catch (err) {
+      setError(err.message || "Failed to load users");
+      console.error("Error loading users:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredUsers = users.filter(
+    (user) =>
+      `${user.firstName} ${user.lastName}`
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.address.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleViewDetails = (user: User) => {
+    setSelectedUser(user);
+    setShowDetailsModal(true);
+  };
 
   const handleInputChange = (e) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
   };
 
-  const handleSubmit = () => {
-    if (!formData.name || !formData.email || !formData.phone || !formData.address || !formData.housingType) {
-      alert('Please fill in all required fields');
+  const handleSubmit = async () => {
+    if (
+      !formData.firstName ||
+      !formData.lastName ||
+      !formData.email ||
+      !formData.contactNumber ||
+      !formData.address
+    ) {
+      alert("Please fill in all required fields");
       return;
     }
-    
-    if (editingUser) {
-      setUsers(users.map(user =>
-        user.id === editingUser
-          ? { ...user, ...formData }
-          : user
-      ));
-      setEditingUser(null);
-    } else {
-      const newUser = {
-        ...formData,
-        id: Math.max(...users.map(u => u.id)) + 1,
-        registrationDate: new Date().toISOString().split('T')[0]
-      };
-      setUsers([...users, newUser]);
+
+    if (!editingUser && !formData.password) {
+      alert("Password is required for new users");
+      return;
     }
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      address: '',
-      coordinates: '',
-      housingType: '',
-      status: 'Active'
-    });
-    setShowAddForm(false);
+
+    try {
+      setActionLoading(true);
+      setError("");
+
+      if (editingUser) {
+        // Update existing user
+        const updateData: Partial<FormData> = { ...formData };
+        if (!formData.password) {
+          delete updateData.password; // This will now work correctly
+        }
+
+        const response = await UserService.updateUser(
+          editingUser._id,
+          updateData
+        );
+
+        setUsers(
+          users.map((user) =>
+            user._id === editingUser._id ? response.data : user
+          )
+        );
+
+        setEditingUser(null);
+      } else {
+        // Create new user
+        const response = await UserService.signup(formData);
+        setUsers([...users, response.data]);
+      }
+
+      // Reset form
+      setFormData({
+        firstName: "",
+        lastName: "",
+        email: "",
+        contactNumber: "",
+        address: "",
+        password: "",
+      });
+      setShowAddForm(false);
+      setShowPassword(false);
+    } catch (err: any) {
+      setError(err.message || "Failed to save user");
+      console.error("Error saving user:", err);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleEdit = (user) => {
     setEditingUser(user);
     setFormData({
-      name: user.name,
+      firstName: user.firstName,
+      lastName: user.lastName,
       email: user.email,
-      phone: user.phone,
+      contactNumber: user.contactNumber,
       address: user.address,
-      coordinates: user.coordinates,
-      housingType: user.housingType,
-      status: user.status
+      password: "", // Don't populate password for security
     });
     setShowAddForm(true);
+    setShowPassword(false);
   };
 
-  const handleDelete = (userId) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      setUsers(users.filter(user => user.id !== userId));
+  const handleDelete = async (userId) => {
+    if (!window.confirm("Are you sure you want to delete this user?")) {
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setError("");
+
+      await UserService.deleteUser(userId);
+      setUsers(users.filter((user) => user._id !== userId));
+    } catch (err) {
+      setError(err.message || "Failed to delete user");
+      console.error("Error deleting user:", err);
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Active': return 'bg-green-100 text-green-800';
-      case 'Pending': return 'bg-yellow-100 text-yellow-800';
-      case 'Inactive': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const resetForm = () => {
+    setShowAddForm(false);
+    setEditingUser(null);
+    setShowPassword(false);
+    setFormData({
+      firstName: "",
+      lastName: "",
+      email: "",
+      contactNumber: "",
+      address: "",
+      password: "",
+    });
+    setError("");
   };
 
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
-      <AdminSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main Content */}
-      <div className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'lg:ml-[17rem]' : 'lg:ml-[17rem]'}`}>
+      <div
+        className={`flex-1 transition-all duration-300 ${
+          sidebarOpen ? "lg:ml-64" : "lg:ml-64"
+        }`}
+      >
         {/* Mobile Header */}
         <div className="lg:hidden flex items-center justify-between p-4 bg-white border-b border-gray-200 sticky top-0 z-40">
           <button
@@ -159,9 +255,30 @@ const UserManagement = () => {
           <div className="max-w-7xl mx-auto">
             {/* Header */}
             <div className="mb-6">
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">User Management</h1>
-              <p className="text-gray-600">Manage housing registration users and their mapping data</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+                User Management
+              </h1>
+              <p className="text-gray-600">
+                Manage registered users and their information
+              </p>
             </div>
+
+            {/* Error Alert */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h3 className="text-sm font-medium text-red-800">Error</h3>
+                  <p className="text-sm text-red-700 mt-1">{error}</p>
+                  <button
+                    onClick={loadUsers}
+                    className="text-sm text-red-600 hover:text-red-800 underline mt-2"
+                  >
+                    Try again
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Controls */}
             <div className="bg-white rounded-lg shadow-sm p-4 md:p-6 mb-6">
@@ -174,11 +291,13 @@ const UserManagement = () => {
                     className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    disabled={loading}
                   />
                 </div>
                 <button
                   onClick={() => setShowAddForm(true)}
-                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                  disabled={loading || actionLoading}
+                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 transition-colors"
                 >
                   <Plus className="h-5 w-5" />
                   Add User
@@ -190,118 +309,132 @@ const UserManagement = () => {
             {showAddForm && (
               <div className="bg-white rounded-lg shadow-sm p-4 md:p-6 mb-6">
                 <h3 className="text-lg font-semibold mb-4">
-                  {editingUser ? 'Edit User' : 'Add New User'}
+                  {editingUser ? "Edit User" : "Add New User"}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      First Name *
+                    </label>
                     <input
                       type="text"
-                      name="name"
-                      value={formData.name}
+                      name="firstName"
+                      value={formData.firstName}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled={actionLoading}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Last Name *
+                    </label>
+                    <input
+                      type="text"
+                      name="lastName"
+                      value={formData.lastName}
+                      onChange={handleInputChange}
+                      disabled={actionLoading}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email *
+                    </label>
                     <input
                       type="email"
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled={actionLoading}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Contact Number *
+                    </label>
                     <input
                       type="tel"
-                      name="phone"
-                      value={formData.phone}
+                      name="contactNumber"
+                      value={formData.contactNumber}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled={actionLoading}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
                       required
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Housing Type</label>
-                    <select
-                      name="housingType"
-                      value={formData.housingType}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    >
-                      <option value="">Select housing type</option>
-                      {housingTypes.map(type => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
-                  </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Address *
+                    </label>
                     <input
                       type="text"
                       name="address"
                       value={formData.address}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled={actionLoading}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
                       required
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Coordinates</label>
-                    <input
-                      type="text"
-                      name="coordinates"
-                      value={formData.coordinates}
-                      onChange={handleInputChange}
-                      placeholder="latitude, longitude"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select
-                      name="status"
-                      value={formData.status}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      {statusOptions.map(status => (
-                        <option key={status} value={status}>{status}</option>
-                      ))}
-                    </select>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Password{" "}
+                      {editingUser ? "(leave blank to keep current)" : "*"}
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        name="password"
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        disabled={actionLoading}
+                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                        required={!editingUser}
+                        placeholder={
+                          editingUser
+                            ? "Enter new password to change"
+                            : "Enter password"
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        disabled={actionLoading}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 disabled:hover:text-gray-400"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                   <div className="md:col-span-2 flex gap-3 justify-end">
                     <button
                       type="button"
-                      onClick={() => {
-                        setShowAddForm(false);
-                        setEditingUser(null);
-                        setFormData({
-                          name: '',
-                          email: '',
-                          phone: '',
-                          address: '',
-                          coordinates: '',
-                          housingType: '',
-                          status: 'Active'
-                        });
-                      }}
-                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                      onClick={resetForm}
+                      disabled={actionLoading}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 transition-colors"
                     >
                       Cancel
                     </button>
                     <button
                       type="button"
                       onClick={handleSubmit}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                      disabled={actionLoading}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 transition-colors flex items-center gap-2"
                     >
-                      {editingUser ? 'Update User' : 'Add User'}
+                      {actionLoading && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
+                      {editingUser ? "Update User" : "Add User"}
                     </button>
                   </div>
                 </div>
@@ -311,100 +444,129 @@ const UserManagement = () => {
             {/* Users Table */}
             <div className="bg-white rounded-lg shadow-sm overflow-hidden">
               <div className="px-4 md:px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                   Registered Users ({filteredUsers.length})
                 </h3>
               </div>
-              
+
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                      <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                      <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                      <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Housing</th>
-                      <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                      <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredUsers.map((user) => (
-                      <tr key={user.id} className="hover:bg-gray-50">
-                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                              <User className="h-5 w-5 text-blue-600" />
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                              <div className="text-sm text-gray-500">ID: {user.id}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center text-sm text-gray-900 mb-1">
-                            <Mail className="h-4 w-4 text-gray-400 mr-2" />
-                            <span className="truncate max-w-[150px]">{user.email}</span>
-                          </div>
-                          <div className="flex items-center text-sm text-gray-500">
-                            <Phone className="h-4 w-4 text-gray-400 mr-2" />
-                            {user.phone}
-                          </div>
-                        </td>
-                        <td className="px-4 md:px-6 py-4">
-                          <div className="flex items-start">
-                            <MapPin className="h-4 w-4 text-gray-400 mr-2 mt-0.5 flex-shrink-0" />
-                            <div>
-                              <div className="text-sm text-gray-900">{user.address}</div>
-                              {user.coordinates && (
-                                <div className="text-xs text-gray-500">{user.coordinates}</div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center text-sm text-gray-900">
-                            <Home className="h-4 w-4 text-gray-400 mr-2" />
-                            {user.housingType}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            Registered: {user.registrationDate}
-                          </div>
-                        </td>
-                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(user.status)}`}>
-                            {user.status}
-                          </span>
-                        </td>
-                        <td className="px-4 md:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleEdit(user)}
-                              className="text-blue-600 hover:text-blue-900 p-1 hover:bg-blue-50 rounded transition-colors"
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(user.id)}
-                              className="text-red-600 hover:text-red-900 p-1 hover:bg-red-50 rounded transition-colors"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </td>
+                {loading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                    <span className="ml-2 text-gray-600">Loading users...</span>
+                  </div>
+                ) : (
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          User
+                        </th>
+                        <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Contact
+                        </th>
+                        <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Address
+                        </th>
+                        <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Registration
+                        </th>
+                        <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredUsers.map((user) => (
+                        <tr key={user._id} className="hover:bg-gray-50">
+                          <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <User className="h-5 w-5 text-blue-600" />
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {user.firstName} {user.lastName}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  ID: {user._id.slice(-8)}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center text-sm text-gray-900 mb-1">
+                              <Mail className="h-4 w-4 text-gray-400 mr-2" />
+                              <span className="truncate max-w-[150px]">
+                                {user.email}
+                              </span>
+                            </div>
+                            <div className="flex items-center text-sm text-gray-500">
+                              <Phone className="h-4 w-4 text-gray-400 mr-2" />
+                              {user.contactNumber}
+                            </div>
+                          </td>
+                          <td className="px-4 md:px-6 py-4">
+                            <div className="text-sm text-gray-900 max-w-xs">
+                              {user.address}
+                            </div>
+                          </td>
+                          <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {formatDate(user.createdAt)}
+                            </div>
+                            {user.updatedAt !== user.createdAt && (
+                              <div className="text-xs text-gray-500">
+                                Updated: {formatDate(user.updatedAt)}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 md:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleViewDetails(user)}
+                                disabled={actionLoading}
+                                className="text-blue-600 hover:text-blue-900 p-1 hover:bg-blue-50 rounded transition-colors disabled:opacity-50"
+                                title="View user details"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleEdit(user)}
+                                disabled={actionLoading}
+                                className="text-blue-600 hover:text-blue-900 p-1 hover:bg-blue-50 rounded transition-colors disabled:opacity-50"
+                                title="Edit user"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(user._id)}
+                                disabled={actionLoading}
+                                className="text-red-600 hover:text-red-900 p-1 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                                title="Delete user"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
 
-              {filteredUsers.length === 0 && (
+              {!loading && filteredUsers.length === 0 && (
                 <div className="text-center py-12">
                   <User className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">No users found</h3>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">
+                    No users found
+                  </h3>
                   <p className="mt-1 text-sm text-gray-500">
-                    {searchTerm ? 'Try adjusting your search criteria.' : 'Get started by adding a new user.'}
+                    {searchTerm
+                      ? "Try adjusting your search criteria."
+                      : "Get started by adding a new user."}
                   </p>
                 </div>
               )}
@@ -412,6 +574,12 @@ const UserManagement = () => {
           </div>
         </div>
       </div>
+      {/* User Details Modal */}
+      <UserDetailsModal
+        isOpen={showDetailsModal}
+        onClose={() => setShowDetailsModal(false)}
+        user={selectedUser}
+      />
     </div>
   );
 };

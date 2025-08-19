@@ -1,6 +1,8 @@
-import { useState, ChangeEvent, KeyboardEvent } from 'react';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useState, ChangeEvent, KeyboardEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { CheckCircle, X, AlertCircle } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import AdminService from "../services/admin_Service";
 
 interface FormData {
   email: string;
@@ -12,45 +14,37 @@ interface FormErrors {
   password?: string;
 }
 
-// Mock user data
-const MOCK_USERS = [
-  {
-    email: 'user@example.com',
-    password: 'password123'
-  },
-  {
-    email: 'test@test.com',
-    password: 'test123'
-  }
-];
+const LoginPage = () => {
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [showErrorPopup, setShowErrorPopup] = useState(false);
 
-export default function LoginPage() {
-  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState<FormData>({
-    email: '',
-    password: ''
+    email: "",
+    password: "",
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [loginError, setLoginError] = useState('');
+  const [loginError, setLoginError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const navigate = useNavigate();
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
     // Clear error when user starts typing
     if (errors[name as keyof FormErrors]) {
-      setErrors(prev => ({
+      setErrors((prev) => ({
         ...prev,
-        [name]: ''
+        [name]: "",
       }));
     }
     // Clear login error when typing
     if (loginError) {
-      setLoginError('');
+      setLoginError("");
     }
   };
 
@@ -58,13 +52,13 @@ export default function LoginPage() {
     const newErrors: FormErrors = {};
 
     if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
+      newErrors.email = "Email is required";
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email';
+      newErrors.email = "Please enter a valid email";
     }
 
     if (!formData.password) {
-      newErrors.password = 'Password is required';
+      newErrors.password = "Password is required";
     }
 
     setErrors(newErrors);
@@ -75,52 +69,76 @@ export default function LoginPage() {
     if (!validateForm()) return;
 
     setIsLoading(true);
-    setLoginError('');
+    setLoginError("");
+    setSuccessMessage("");
 
-    // Simulate API call with mock data
-    setTimeout(() => {
-      const user = MOCK_USERS.find(
-        user => 
-          user.email === formData.email && 
-          user.password === formData.password
-      );
+    try {
+      const response = await AdminService.login({
+        email: formData.email,
+        password: formData.password,
+      });
 
-      if (user) {
-        console.log('Login successful:', user);
-        // In a real app, you would store the auth token or user data here
-        localStorage.setItem('isAuthenticated', 'true');
-        navigate('/dashboard'); // Redirect to dashboard or home page
-      } else {
-        setLoginError('Invalid email or password');
-      }
+      console.log("Login successful:", response);
+
+      // Show success popup
+      setSuccessMessage("Login successful! Welcome to the dashboard!");
+      setShowSuccessPopup(true);
+
+      // Navigate to dashboard after 2 seconds
+      setTimeout(() => {
+        navigate("/dashboard");
+      }, 2000);
+    } catch (error: any) {
+      console.error("Login failed:", error);
+      setLoginError(error.message || "Login failed. Please try again.");
+      setShowErrorPopup(true);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
+  };
+
+  // Add these popup close functions
+  const closeSuccessPopup = () => {
+    setShowSuccessPopup(false);
+    navigate("/dashboard");
+  };
+
+  const closeErrorPopup = () => {
+    setShowErrorPopup(false);
+    setLoginError("");
   };
 
   const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       handleLogin();
     }
   };
 
   const navigateToSignup = () => {
-    navigate('/signup');
+    alert("Signup page navigation would happen here");
+    // navigate("/signup");
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <div className="bg-blue-100 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
             <Lock className="w-10 h-10 text-blue-600" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Welcome Back</h1>
-          <p className="text-gray-600">Please sign in to your account</p>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Admin Login</h1>
+          <p className="text-gray-600">Please sign in to your admin account</p>
         </div>
 
         {loginError && (
           <div className="mb-6 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
             {loginError}
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="mb-6 p-3 bg-green-100 text-green-700 rounded-lg text-sm">
+            {successMessage}
           </div>
         )}
 
@@ -138,9 +156,10 @@ export default function LoginPage() {
                 onChange={handleInputChange}
                 onKeyPress={handleKeyPress}
                 className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors ${
-                  errors.email ? 'border-red-500' : 'border-gray-300'
+                  errors.email ? "border-red-500" : "border-gray-300"
                 }`}
                 placeholder="Enter your email"
+                disabled={isLoading}
               />
             </div>
             {errors.email && (
@@ -155,20 +174,22 @@ export default function LoginPage() {
             <div className="relative">
               <Lock className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
               <input
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 name="password"
                 value={formData.password}
                 onChange={handleInputChange}
                 onKeyPress={handleKeyPress}
                 className={`w-full pl-10 pr-12 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors ${
-                  errors.password ? 'border-red-500' : 'border-gray-300'
+                  errors.password ? "border-red-500" : "border-gray-300"
                 }`}
                 placeholder="Enter your password"
+                disabled={isLoading}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition-colors"
+                disabled={isLoading}
               >
                 {showPassword ? (
                   <EyeOff className="w-5 h-5" />
@@ -187,10 +208,14 @@ export default function LoginPage() {
               <input
                 type="checkbox"
                 className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                disabled={isLoading}
               />
               <span className="ml-2 text-sm text-gray-600">Remember me</span>
             </label>
-            <button className="text-sm text-blue-600 hover:text-blue-800 transition-colors">
+            <button
+              className="text-sm text-blue-600 hover:text-blue-800 transition-colors disabled:opacity-50"
+              disabled={isLoading}
+            >
               Forgot password?
             </button>
           </div>
@@ -200,8 +225,8 @@ export default function LoginPage() {
             disabled={isLoading}
             className={`w-full py-3 rounded-lg font-medium transition-colors ${
               isLoading
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             } text-white`}
           >
             {isLoading ? (
@@ -210,17 +235,18 @@ export default function LoginPage() {
                 Signing in...
               </div>
             ) : (
-              'Sign In'
+              "Sign In"
             )}
           </button>
         </div>
 
         <div className="mt-8 text-center">
           <p className="text-gray-600">
-            Don't have an account?{' '}
-            <button 
+            Don't have an account?{" "}
+            <button
               onClick={navigateToSignup}
-              className="text-blue-600 hover:text-blue-800 font-medium transition-colors"
+              className="text-blue-600 hover:text-blue-800 font-medium transition-colors disabled:opacity-50"
+              disabled={isLoading}
             >
               Sign up here
             </button>
@@ -230,12 +256,89 @@ export default function LoginPage() {
         {/* Demo credentials hint */}
         <div className="mt-6 p-3 bg-gray-100 rounded-lg text-sm text-gray-600">
           <p className="font-medium">Demo credentials:</p>
-          <ul className="list-disc list-inside mt-1">
-            <li>user@example.com / password123</li>
-            <li>test@test.com / test123</li>
-          </ul>
+          <p className="mt-1">admin@test.com / admin123</p>
+          <p className="text-xs text-gray-500 mt-2">
+            (Replace AdminService mock with your actual import)
+          </p>
         </div>
       </div>
+      {/* Success Popup */}
+      {showSuccessPopup && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/20">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 relative transform animate-in fade-in slide-in-from-bottom-4 duration-300">
+            {/* Close Button */}
+            <button
+              onClick={closeSuccessPopup}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Popup Content */}
+            <div className="p-8 text-center">
+              {/* Success Icon */}
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-green-600" />
+              </div>
+
+              {/* Success Title */}
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                Login Successful!
+              </h3>
+
+              {/* Success Message */}
+              <p className="text-gray-600 mb-6">{successMessage}</p>
+
+              {/* Loading indicator */}
+              <div className="flex items-center justify-center text-sm text-gray-500">
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2"></div>
+                Redirecting to dashboard...
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error Popup */}
+      {showErrorPopup && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4 backdrop-blur-sm bg-black/20">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 relative transform animate-in fade-in slide-in-from-bottom-4 duration-300">
+            {/* Close Button */}
+            <button
+              onClick={closeErrorPopup}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Popup Content */}
+            <div className="p-8 text-center">
+              {/* Error Icon */}
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertCircle className="w-8 h-8 text-red-600" />
+              </div>
+
+              {/* Error Title */}
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                Login Failed
+              </h3>
+
+              {/* Error Message */}
+              <p className="text-gray-600 mb-6">{loginError}</p>
+
+              {/* Close Button */}
+              <button
+                onClick={closeErrorPopup}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-all"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default LoginPage;
