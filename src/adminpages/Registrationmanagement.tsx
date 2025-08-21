@@ -22,7 +22,7 @@ import {
 import Sidebar from "../components/sidebar";
 import PropertyRegistrationModal from "../components/house_registration/register_house";
 import HouseService from "../services/House_Service";
-import HouseDetailsModal from "../components/house_registration/view_registered";
+import HouseDetailsModal, { HouseData }  from "../components/house_registration/view_registered";
 
 interface Photo {
   name: string;
@@ -30,6 +30,7 @@ interface Photo {
 }
 
 interface Registration {
+  _id?: string;
   id: string;
   userId: string;
   propertyType: string;
@@ -50,7 +51,10 @@ interface Registration {
   photos: Photo[];
   status: "Pending" | "Approved" | "Rejected" | "Needs Documents";
   createdAt: string;
+  updatedAt?: string; // Add this line
   submittedBy: string;
+  ownerName?: string;
+  ownerPhone?: string;
 }
 
 export default function HousingRegistrationAdmin() {
@@ -65,11 +69,27 @@ export default function HousingRegistrationAdmin() {
   const [error, setError] = useState<string | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<Registration | null>(null);
+const [selectedHouse, setSelectedHouse] = useState<HouseData | null>(null);
 
-  const handleViewDetails = (hosu: Registration) => {
-    setSelectedUser(hosu);
-    setShowDetailsModal(true);
+const handleViewDetails = (house: Registration) => {
+  // Ensure _id is defined before passing to modal
+  if (!house._id && !house.id) {
+    console.error("House has no valid ID");
+    return;
+  }
+
+  // Transform the data to match the modal's expected format
+  const transformedHouse: HouseData = {
+    ...house,
+    _id: house._id || house.id, // This ensures _id is always a string
+    ownerName: `${house.ownerFirstName} ${house.ownerLastName}`,
+    ownerPhone: house.ownerContactNumber,
+    ownerEmail: house.ownerEmail || '', // Provide default if undefined
+    updatedAt: house.updatedAt || house.createdAt,
   };
+  setSelectedHouse(transformedHouse);
+  setShowDetailsModal(true);
+};
 
   // Fetch all houses from the backend
   const fetchHouses = async () => {
@@ -81,6 +101,7 @@ export default function HousingRegistrationAdmin() {
       // Transform backend data to match your Registration interface
       const transformedData: Registration[] =
         response.data?.map((house: any) => ({
+          _id: house._id || house.id, // Add this line
           id: house._id || house.id,
           userId: house.userId || house.owner?._id || "",
           propertyType: house.propertyType || "Single Family Home",
@@ -102,7 +123,14 @@ export default function HousingRegistrationAdmin() {
           photos: house.photos || [],
           status: house.status || "Pending",
           createdAt: house.createdAt || new Date().toISOString(),
+          updatedAt:
+            house.updatedAt || house.createdAt || new Date().toISOString(), // Add this line
           submittedBy: house.submittedBy || "System",
+          // Add these computed fields
+          ownerName: `${house.owner?.firstName || house.ownerFirstName || ""} ${
+            house.owner?.lastName || house.ownerLastName || ""
+          }`.trim(),
+          ownerPhone: house.owner?.phone || house.ownerContactNumber || "",
         })) || [];
 
       setRegistrations(transformedData);
@@ -119,7 +147,7 @@ export default function HousingRegistrationAdmin() {
     fetchHouses();
   }, []);
 
-  const handleNewPropertySubmit = async (newRegistration: Registration) => {
+const handleNewPropertySubmit = async (newRegistration: Omit<Registration, '_id'>) => {
     try {
       // Transform the registration data to match your backend expected format
       const houseData = {
@@ -589,6 +617,7 @@ export default function HousingRegistrationAdmin() {
                                 <Edit className="w-4 h-4" />
                               </button>
                               <button
+                                onClick={() => handleViewDetails(registration)}
                                 className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
                                 title="View Details"
                                 disabled={loading}
@@ -621,6 +650,48 @@ export default function HousingRegistrationAdmin() {
           </div>
         </div>
       </div>
+      {/* House Details Modal */}
+      <HouseDetailsModal
+        isOpen={showDetailsModal}
+        onClose={() => {
+          setShowDetailsModal(false);
+          setSelectedHouse(null);
+        }}
+        house={selectedHouse}
+        onStatusUpdate={async (houseId: string, newStatus: string) => {
+          await updateRegistrationStatus(houseId, newStatus as any);
+          // Update the selected house status for immediate UI feedback
+          if (selectedHouse) {
+            setSelectedHouse({
+              ...selectedHouse,
+              status: newStatus as any,
+            });
+          }
+        }}
+        onEdit={(house) => {
+          // Close the details modal and open the edit modal
+          setShowDetailsModal(false);
+          setSelectedHouse(null);
+          // You can implement edit functionality here
+          console.log("Edit house:", house);
+        }}
+        onDelete={async (houseId: string) => {
+          // Implement delete functionality
+          if (
+            window.confirm("Are you sure you want to delete this property?")
+          ) {
+            try {
+              await HouseService.deleteHouse(houseId); // Assuming you have this method
+              await fetchHouses(); // Refresh the list
+              setShowDetailsModal(false);
+              setSelectedHouse(null);
+            } catch (err: any) {
+              console.error("Error deleting house:", err);
+              setError(err?.message || "Failed to delete property.");
+            }
+          }
+        }}
+      />
 
       {/* Property Registration Modal */}
       <PropertyRegistrationModal

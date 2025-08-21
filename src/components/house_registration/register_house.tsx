@@ -12,6 +12,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import HouseService from "../../services/House_Service";
+import supabase from "../../supabase_config/supabase_Config";
 
 interface Photo {
   name: string;
@@ -66,7 +67,7 @@ interface FormData {
 interface PropertyRegistrationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (registration: Registration) => void;
+  onSubmit: (registration: Omit<Registration, "_id">) => void;
   registrationsLength: number;
 }
 
@@ -103,6 +104,9 @@ const PropertyRegistrationModal: React.FC<PropertyRegistrationModalProps> = ({
   const [showErrorPopup, setShowErrorPopup] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  //supabse
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [showPhotoUploadModal, setShowPhotoUploadModal] = useState(false);
 
   const propertyTypeOptions = [
     "Single Family Home",
@@ -205,15 +209,7 @@ const PropertyRegistrationModal: React.FC<PropertyRegistrationModalProps> = ({
   };
 
   const addPhoto = () => {
-    const name = prompt("Enter photo name:");
-    const url = prompt("Enter photo URL:");
-
-    if (name && url) {
-      setFormData((prev) => ({
-        ...prev,
-        photos: [...prev.photos, { name, url }],
-      }));
-    }
+    setShowPhotoUploadModal(true);
   };
 
   const removePhoto = (index: number) => {
@@ -249,6 +245,102 @@ const PropertyRegistrationModal: React.FC<PropertyRegistrationModalProps> = ({
       return false;
     }
     return true;
+  };
+
+  //supabase
+  const uploadPhotoToSupabase = async (file: File) => {
+    try {
+      if (!file) return null;
+
+      // Check if file is an image
+      const allowedTypes = ["image/jpeg", "image/jpg", "image/png"];
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error(
+          "Invalid file type. Please upload an image (JPG, PNG)."
+        );
+      }
+
+      // Check file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        throw new Error("File size must be less than 10MB");
+      }
+
+      // Get user ID for folder structure
+      const userId = formData.userId || "default";
+
+      // Create a unique file name with folder structure
+      const fileExtension = file.name.split(".").pop();
+      const fileName = `${userId}/property_${Date.now()}.${fileExtension}`;
+
+      console.log("Uploading photo to Supabase:", fileName);
+
+      // Upload file to the Supabase bucket
+      const { data, error } = await supabase.storage
+        .from("housing_registration")
+        .upload(fileName, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (error) {
+        console.error("Supabase upload error:", error);
+        throw new Error(`Error uploading photo: ${error.message}`);
+      }
+
+      console.log("Photo uploaded successfully:", data);
+
+      // Get the public URL of the uploaded file
+      const { data: publicData } = supabase.storage
+        .from("housing_registration")
+        .getPublicUrl(fileName);
+
+      if (publicData) {
+        console.log("Public URL generated:", publicData.publicUrl);
+        return publicData.publicUrl;
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Error in photo upload:", error);
+      throw error;
+    }
+  };
+
+  //upload photo
+  const handleDevicePhotoUpload = async (file: File) => {
+    setUploadingPhoto(true);
+    setErrorMessage("");
+
+    try {
+      const photoName = prompt("Enter photo name:") || `Photo_${Date.now()}`;
+
+      // Upload photo to Supabase and get the URL
+      const uploadedPhotoUrl = await uploadPhotoToSupabase(file);
+
+      if (!uploadedPhotoUrl) {
+        throw new Error("Failed to upload photo to storage");
+      }
+
+      console.log("Photo uploaded successfully, URL:", uploadedPhotoUrl);
+
+      // Add photo to form data
+      setFormData((prev) => ({
+        ...prev,
+        photos: [...prev.photos, { name: photoName, url: uploadedPhotoUrl }],
+      }));
+
+      setShowPhotoUploadModal(false);
+      setSuccessMessage("Photo uploaded successfully!");
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } catch (err: any) {
+      console.error("Error in photo upload:", err);
+      setErrorMessage(err.message || "Failed to upload photo");
+      setShowErrorPopup(true);
+    } finally {
+      setUploadingPhoto(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -903,6 +995,84 @@ const PropertyRegistrationModal: React.FC<PropertyRegistrationModalProps> = ({
               >
                 Try Again
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Photo Upload Modal */}
+      {showPhotoUploadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Upload Property Photo</h3>
+              <button
+                onClick={() => {
+                  setShowPhotoUploadModal(false);
+                  setUploadingPhoto(false);
+                }}
+                disabled={uploadingPhoto}
+                className="text-gray-500 hover:text-gray-700 disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleDevicePhotoUpload(file);
+                    }
+                  }}
+                  className="hidden"
+                  id="photo-upload"
+                  disabled={uploadingPhoto}
+                />
+                <label
+                  htmlFor="photo-upload"
+                  className={`cursor-pointer flex flex-col items-center space-y-2 ${
+                    uploadingPhoto ? "opacity-50 pointer-events-none" : ""
+                  }`}
+                >
+                  <Camera className="w-8 h-8 text-gray-400" />
+                  <span className="text-sm text-gray-600">
+                    {uploadingPhoto
+                      ? "Uploading..."
+                      : "Click to select photo from device"}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    PNG, JPG up to 10MB
+                  </span>
+                </label>
+              </div>
+
+              {uploadingPhoto && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <div className="flex items-center">
+                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2" />
+                    <span className="text-blue-800 text-sm">
+                      Uploading photo to storage...
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end space-x-2">
+                <button
+                  onClick={() => {
+                    setShowPhotoUploadModal(false);
+                    setUploadingPhoto(false);
+                  }}
+                  disabled={uploadingPhoto}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>

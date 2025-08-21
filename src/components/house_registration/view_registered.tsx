@@ -26,7 +26,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 
-interface HouseData {
+ export interface HouseData {
   _id: string;
   userId: string;
   propertyType: string;
