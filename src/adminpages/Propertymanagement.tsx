@@ -13,7 +13,6 @@ import {
   Menu,
   Bell,
 } from "lucide-react";
-import sidebar from "../components/sidebar"
 import Sidebar from "../components/sidebar";
 
 type PropertyType =
