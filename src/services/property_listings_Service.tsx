@@ -1,62 +1,16 @@
 import axios from "axios";
 
-const BASE_URL = "https://housing-backend-xwrj.onrender.com/api/v1/admin_route"; // Replace with actual admin route
+const BASE_URL =
+  "https://housing-backend-xwrj.onrender.com/api/v1/property_listings_route"; 
 
 /**
- * Service for handling admin-related API requests, including auth
+ * Service for handling property-related API requests
  */
-const AdminService = {
+const PropertyService = {
   /**
-   * Admin signup
+   * Fetch all properties
    */
-  signup: async (adminData: any): Promise<any> => {
-    try {
-      const response = await axios.post(`${BASE_URL}/signup`, adminData, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-      return response.data;
-    } catch (error: unknown) {
-      if (axios.isAxiosError(error)) {
-        throw error.response?.data || "Failed to sign up admin";
-      } else {
-        throw "An unexpected error occurred";
-      }
-    }
-  },
-
-  /**
-   * Admin login
-   */
-  login: async (credentials: {
-    email: string;
-    password: string;
-  }): Promise<any> => {
-    try {
-      const response = await axios.post(`${BASE_URL}/login`, credentials, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-      // Save token to localStorage
-      if (response.data.token) {
-        localStorage.setItem("adminToken", response.data.token);
-      }
-      return response.data;
-    } catch (error: unknown) {
-      if (axios.isAxiosError(error)) {
-        throw error.response?.data || "Failed to log in";
-      } else {
-        throw "An unexpected error occurred";
-      }
-    }
-  },
-
-  /**
-   * Fetch all admins
-   */
-  getAllAdmins: async (): Promise<any> => {
+  getAllProperties: async (): Promise<any> => {
     try {
       const response = await axios.get(`${BASE_URL}/getall`, {
         headers: {
@@ -66,7 +20,7 @@ const AdminService = {
       return response.data;
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
-        throw error.response?.data || "Failed to retrieve admins";
+        throw error.response?.data || "Failed to retrieve properties";
       } else {
         throw "An unexpected error occurred";
       }
@@ -74,9 +28,9 @@ const AdminService = {
   },
 
   /**
-   * Get an admin by ID
+   * Get a property by ID
    */
-  getAdminById: async (id: string): Promise<any> => {
+  getPropertyById: async (id: string): Promise<any> => {
     try {
       const response = await axios.get(`${BASE_URL}/get/${id}`, {
         headers: {
@@ -86,7 +40,7 @@ const AdminService = {
       return response.data;
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
-        throw error.response?.data || "Failed to retrieve admin";
+        throw error.response?.data || "Failed to retrieve property";
       } else {
         throw "An unexpected error occurred";
       }
@@ -94,13 +48,54 @@ const AdminService = {
   },
 
   /**
-   * Update an existing admin
+   * Get properties by user ID
    */
-  updateAdmin: async (id: string, adminData: any): Promise<any> => {
+  getPropertiesByUserId: async (userId: string): Promise<any> => {
+    try {
+      const response = await axios.get(`${BASE_URL}/getbyuser/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${getAuthToken()}`,
+        },
+      });
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        throw error.response?.data || "Failed to retrieve user properties";
+      } else {
+        throw "An unexpected error occurred";
+      }
+    }
+  },
+
+  /**
+   * Create a new property
+   */
+  createProperty: async (propertyData: any): Promise<any> => {
+    try {
+      const response = await axios.post(`${BASE_URL}/create`, propertyData, {
+        headers: {
+          Authorization: `Bearer ${getAuthToken()}`,
+          "Content-Type": "application/json",
+        },
+      });
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        throw error.response?.data || "Failed to create property";
+      } else {
+        throw "An unexpected error occurred";
+      }
+    }
+  },
+
+  /**
+   * Update an existing property
+   */
+  updateProperty: async (id: string, propertyData: any): Promise<any> => {
     try {
       const response = await axios.put(
-        `${BASE_URL}/updateadmin/${id}`,
-        adminData,
+        `${BASE_URL}/update/${id}`,
+        propertyData,
         {
           headers: {
             Authorization: `Bearer ${getAuthToken()}`,
@@ -111,7 +106,7 @@ const AdminService = {
       return response.data;
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
-        throw error.response?.data || "Failed to update admin";
+        throw error.response?.data || "Failed to update property";
       } else {
         throw "An unexpected error occurred";
       }
@@ -119,9 +114,9 @@ const AdminService = {
   },
 
   /**
-   * Delete an admin
+   * Delete a property
    */
-  deleteAdmin: async (id: string): Promise<any> => {
+  deleteProperty: async (id: string): Promise<any> => {
     try {
       const response = await axios.delete(`${BASE_URL}/delete/${id}`, {
         headers: {
@@ -131,18 +126,11 @@ const AdminService = {
       return response.data;
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
-        throw error.response?.data || "Failed to delete admin";
+        throw error.response?.data || "Failed to delete property";
       } else {
         throw "An unexpected error occurred";
       }
     }
-  },
-
-  /**
-   * Admin logout
-   */
-  logout: (): void => {
-    localStorage.removeItem("adminToken");
   },
 };
 
@@ -153,4 +141,4 @@ const getAuthToken = (): string | null => {
   return localStorage.getItem("adminToken");
 };
 
-export default AdminService;
+export default PropertyService;

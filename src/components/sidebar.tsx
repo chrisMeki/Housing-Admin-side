@@ -17,7 +17,7 @@ export default function ({ isOpen = true, onClose = () => {} }) {
   ];
 
   const bottomMenuItems = [
-    { id: 'profile', label: 'Admin Profile', path: '/profile', icon: User, color: 'text-indigo-500' },
+    
     { id: 'logout', label: 'Admin logout', path: '/logout', icon: User, color: 'text-indigo-500' }
   ];
 

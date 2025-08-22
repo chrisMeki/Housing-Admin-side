@@ -115,8 +115,7 @@ const LoginPage = () => {
   };
 
   const navigateToSignup = () => {
-    alert("Signup page navigation would happen here");
-    // navigate("/signup");
+    navigate("/signup");
   };
 
   return (
@@ -250,15 +249,6 @@ const LoginPage = () => {
             >
               Sign up here
             </button>
-          </p>
-        </div>
-
-        {/* Demo credentials hint */}
-        <div className="mt-6 p-3 bg-gray-100 rounded-lg text-sm text-gray-600">
-          <p className="font-medium">Demo credentials:</p>
-          <p className="mt-1">admin@test.com / admin123</p>
-          <p className="text-xs text-gray-500 mt-2">
-            (Replace AdminService mock with your actual import)
           </p>
         </div>
       </div>
