@@ -13,7 +13,7 @@ export default function ({ isOpen = true, onClose = () => {} }) {
     { id: 'properties', label: 'Property Management', path: '/properties', icon: Map, color: 'text-yellow-500' },
     { id: 'registration', label: 'Registration Management', path: '/registration', icon: User, color: 'text-purple-500' },
     { id: 'listings', label: 'Admin Property Listings', path: '/listings', icon: List, color: 'text-pink-500' },
-    { id: 'reports', label: 'Reports & Analytics', path: '/reports', icon: BarChart3, color: 'text-red-500' }
+    { id: 'reports', label: 'Reports', path: '/reports', icon: BarChart3, color: 'text-red-500' }
   ];
 
   const bottomMenuItems = [
